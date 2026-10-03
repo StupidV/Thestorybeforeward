@@ -376,7 +376,9 @@ img { -webkit-user-drag: none; user-select: none; }
 #end.promo #endPromo { display: block; }
 #end.promo .end-recap { display: none; }
 #endPromo p { margin: 0 0 14px; }
-#endPromo .pr-lead { font-size: 15.5px; color: #eee7da; }
+#endPromo .pr-lead { font-size: 18px; letter-spacing: .2em; color: #eee7da; margin-bottom: 22px; }
+#endPromo .pr-final { margin-top: 22px; font-size: 15px; }
+#endPromo .pr-final b { display: inline-block; margin-top: 6px; font-size: 19px; letter-spacing: .12em; color: #e0b98a; font-weight: 600; }
 #endPromo .pr-small { color: #a99e8c; font-size: 13px; }
 #endPromo .pr-form { display: flex; gap: 8px; margin-top: 6px; }
 #endPromo input { flex: 1; min-width: 0; padding: 12px 12px; font: inherit; font-size: 15px; color: #eee7da; background: #141416;
@@ -546,15 +548,9 @@ img { -webkit-user-drag: none; user-select: none; }
       <h2>第一章 試玩到此結束</h2>
       <dl class="end-recap"></dl>
       <div id="endPromo">
-        <p class="pr-lead">感謝你遊玩《昨日病房》的前傳。<br>你的體驗到這裡告一段落。</p>
-        <p>但故事並沒有結束。<br>在現實世界中，這個故事的後續，將以<b>沉浸式劇場</b>的形式上演。</p>
-        <p>想知道<span class="key">548</span>究竟是誰、<span class="key">019</span>與你的關係，<br>以及<span class="key">0號病患</span>最終的下落嗎？</p>
-        <p class="pr-small">留下你的 Email，開放購票時，我們會寄信通知你。</p>
-        <div class="pr-form">
-          <input id="promoEmail" type="email" inputmode="email" autocomplete="email" placeholder="your@email.com" aria-label="Email">
-          <button id="promoSend" type="button">登記通知</button>
-        </div>
-        <p id="promoMsg" class="pr-msg" role="status"></p>
+        <p class="pr-lead">《昨日病房》同人前傳<br>故事已結束</p>
+        <p>若想知道<span class="key">548</span>是誰、<span class="key">019</span>與主角的關係、<br>以及<span class="key">0號病患</span>的最終下落</p>
+        <p class="pr-final">答案就在<br><b>沉浸式劇場——《昨日病房》</b></p>
       </div>
       <button id="endRestart" class="slip">重新開始遊戲</button>
     </div>
@@ -4106,31 +4102,6 @@ window.GAME_DATA = (function () {
     return box;
   }
 
-  /* 通關後登記 Email（存在這個作品的資料庫裡，只有作者看得到） */
-  (function setupPromo() {
-    const input = document.getElementById('promoEmail'), btn = document.getElementById('promoSend'), msg = document.getElementById('promoMsg');
-    if (!input) return;
-    const ok = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-    let busy = false;
-    btn.addEventListener('click', async () => {
-      const v = input.value.trim();
-      if (!ok(v)) { msg.textContent = '請輸入正確的 Email。'; return; }
-      if (busy) return; busy = true; btn.disabled = true; msg.textContent = '登記中……';
-      try {
-        const db = window.claude && window.claude.use ? await window.claude.use('db') : null;
-        const user = window.claude && window.claude.use ? await window.claude.use('user') : null;
-        if (!db || !user) throw new Error('unavailable');
-        const id = await user.id();
-        await db.doc('signups/' + id).set({ email: v, at: new Date().toISOString() });
-        msg.textContent = '登記完成！開放購票時，我們會寄信通知你。';
-        input.disabled = true;
-      } catch (e) {
-        msg.textContent = '目前無法完成登記，請稍後再試一次。';
-        btn.disabled = false;
-      }
-      busy = false;
-    });
-  })();
   function showEnd(o) {
     el.end.classList.toggle('promo', !!(o && o.promo));
     el.end.querySelector('h2').textContent = (o && o.title) || '第一章 試玩到此結束';
