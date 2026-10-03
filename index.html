@@ -943,7 +943,7 @@ window.AudioSys = (function () {
     const g = ctx.createGain(); g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(st.bgmOn ? 1 : 0, t + (fadeIn || .8));
     src.connect(g); g.connect(master); src.start(t + .02);
-    music = { src, g };
+    music = { src, g, name };
   }
   function stopMusic(fadeOut) {
     if (!ctx) return;
@@ -959,8 +959,46 @@ window.AudioSys = (function () {
   }
 
   /* ---------------- 對外 ---------------- */
+  /* ---------------- 切出 App 再回來 ----------------
+     iPhone 從背景回來後，舊的音訊常常會「看起來在播、其實沒聲音」。
+     所以手機上一律在回來後的第一次點擊時，把整套音訊重新建立一次（音樂從頭接著放）。 */
+  let needRebuild = false, wakeReady = false;
+  const touchDevice = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+  function rebuild() {
+    const mName = music && music.name;
+    clearTimeout(eventTimer); clearInterval(flickerTimer); stopHeart();
+    try { if (music) music.src.stop(); } catch (e) {}
+    music = null;
+    const old = ctx; ctx = null;
+    try { old && old.close(); } catch (e) {}
+    Object.keys(L).forEach(k => delete L[k]);
+    if (!init()) return;
+    if (st.running) { applyMix(1.2); scheduleEvents(); }
+    if (mName) playMusic(mName, 1.5);
+  }
+  function wake() {
+    if (needRebuild && ctx) { needRebuild = false; rebuild(); return; }
+    if (!ctx || ctx.state === 'running' || ctx.state === 'closed') return;
+    const p = ctx.resume();
+    const kick = () => {
+      try { const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(0); } catch (e) {}
+    };
+    if (p && p.then) p.then(kick, () => {}); else kick();
+  }
+  function setupWake() {
+    if (wakeReady) return; wakeReady = true;
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach(t => document.addEventListener(t, wake, { passive: true, capture: true }));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        if (touchDevice) needRebuild = true;
+        if (ctx && ctx.state === 'running') ctx.suspend();
+      } else if (!touchDevice && ctx) ctx.resume();
+    });
+    window.addEventListener('pagehide', () => { if (touchDevice) needRebuild = true; });
+  }
+
   function init() {
-    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return true; }
+    if (ctx) { if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume(); return true; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
     try {
@@ -975,9 +1013,7 @@ window.AudioSys = (function () {
       reverbIn = ctx.createGain(); reverbIn.gain.value = .5; reverbIn.connect(conv); conv.connect(master);
       buildLayers();
       decodeFiles();
-      const unlock = () => { if (ctx.state === 'suspended') ctx.resume(); };
-      document.addEventListener('pointerdown', unlock, { passive: true });
-      document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else ctx.resume(); });
+      setupWake();
       return true;
     } catch (e) { ctx = null; return false; }
   }
